@@ -24,9 +24,10 @@ IIM42652/
 │   ├── Ixm42xxx/                 # 核心驱动代码
 │   └── examples/                 # 示例代码
 ├── src/                          # 项目源码
-│   ├── main.cpp                  # 主程序入口
+│   ├── main.c                    # 主程序入口
 │   ├── platform.c                # 平台相关实现
 │   └── platform.h                # 平台相关头文件
+├── out/                          # 输出目录（存放编译后的可执行文件）
 ├── xmake.lua                     # XMake构建配置
 └── README.md                     # 项目说明文档
 ```
@@ -52,9 +53,42 @@ cd IIM42652
 # 执行构建
 xmake
 
-# 构建完成后，可执行文件位于
-./build/linux/x86_64/release/IIM42652
+# 构建完成后，可执行文件会被自动复制到out/目录
+# 同时也位于 ./build/linux/x86_64/release/IIM42652
 ```
+
+### 3. Out目录机制
+
+本项目使用了XMake的构建后脚本功能，在每次成功构建后自动将可执行文件复制到`out/`目录中。这种机制的作用如下：
+
+#### 作用
+- **简化部署**: 可执行文件集中放置在`out/`目录中，便于打包和部署
+- **统一出口**: 所有构建产物放在统一位置，避免在深层目录中查找
+- **自动化流程**: 减少手动复制粘贴操作，提高开发效率
+- **CI/CD友好**: 便于自动化脚本定位和处理构建产物
+
+#### 实现原理
+在[xmake.lua](file:///home/zc/xmake/IIM42652/xmake.lua)中添加了`after_build`自定义脚本：
+
+```lua
+after_build(function (target)
+    local out_dir = path.join(os.projectdir(), "out")
+    os.mkdir(out_dir)
+    
+    local exe_name = target:targetfile()
+    local exe_basename = path.filename(exe_name)
+    local dest_path = path.join(out_dir, exe_basename)
+    
+    cprint("${yellow}Copying executable to out folder...")
+    os.cp(exe_name, dest_path)
+    cprint("${green}Executable copied to: %s", dest_path)
+end)
+```
+
+这个脚本会在每次构建成功后执行：
+1. 检查或创建`out`目录
+2. 获取构建目标的文件路径
+3. 将可执行文件复制到`out`目录中
 
 ## 使用说明
 
@@ -69,6 +103,8 @@ xmake run
 或直接执行生成的可执行文件：
 
 ```bash
+./out/IIM42652
+# 或者
 ./build/linux/x86_64/release/IIM42652
 ```
 
@@ -80,7 +116,7 @@ xmake run
 
 1. 实现SPI或I2C传输接口函数：
 
-   在[main.cpp](file:///home/zc/xmake/IIM42652/src/main.cpp)中，需要实现`serif.read_reg`和`serif.write_reg`函数指针，
+   在[main.c](file:///home/zc/xmake/IIM42652/src/main.c)中，需要实现`serif.read_reg`和`serif.write_reg`函数指针，
    以完成对传感器的实际读写操作。
 
 2. 连接硬件电路：
@@ -99,7 +135,7 @@ xmake run
 - 陀螺仪输出频率：50Hz
 - 启用低噪声模式
 
-这些配置可以在[main.cpp](file:///home/zc/xmake/IIM42652/src/main.cpp)中的`ConfigureInvDevice`部分进行修改。
+这些配置可以在[main.c](file:///home/zc/xmake/IIM42652/src/main.c)中的相应部分进行修改。
 
 ## API说明
 
@@ -133,4 +169,4 @@ int rc = inv_ixm42xxx_init(&sensor_driver, &serif, handle_fifo_data);
 
 - [IIM42652产品页面](https://www.invensense.com/products/motion-tracking/6-axis/iim42652/)
 - [官方驱动库](https://github.com/InvenSenseInc/public.mcu.iim42652)
-- [IIM42652数据手册](https://3cfeqx1hf82y3xcoull08ihx-wpengine.netdna-ssl.com/wp-content/uploads/2021/06/DS-000185-ICM-42652-v1.0.pdf)# IIM42652-TEST
+- [IIM42652数据手册](https://3cfeqx1hf82y3xcoull08ihx-wpengine.netdna-ssl.com/wp-content/uploads/2021/06/DS-000185-ICM-42652-v1.0.pdf)
