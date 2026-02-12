@@ -167,6 +167,6 @@ int rc = inv_ixm42xxx_init(&sensor_driver, &serif, handle_fifo_data);
 
 ## 参考资料
 
-- [IIM42652产品页面](https://www.invensense.com/products/motion-tracking/6-axis/iim42652/)
+- [IIM42652产品页面](https://invensense.tdk.com/products/smartindustrial/iim-42652/)
 - [官方驱动库](https://github.com/InvenSenseInc/public.mcu.iim42652)
-- [IIM42652数据手册](https://3cfeqx1hf82y3xcoull08ihx-wpengine.netdna-ssl.com/wp-content/uploads/2021/06/DS-000185-ICM-42652-v1.0.pdf)
+- [IIM42652数据手册](https://invensense.tdk.com/wp-content/uploads/2021/01/ds-000440_iim-42652-datasheet.pdf)
