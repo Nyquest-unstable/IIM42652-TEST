@@ -1,4 +1,4 @@
-# IIM42652 六轴运动传感器测试项目
+# IIM42652 六轴运动传感器测试程序框架
 
 本项目是一个基于InvenSense IIM42652六轴运动传感器（3轴加速度计+3轴陀螺仪）的测试应用，用于验证传感器的基本功能。
 
@@ -15,6 +15,7 @@ IIM42652是一款高性能、低功耗的6轴MEMS运动传感器，集成了3轴
 - 低噪声模式启用
 - FIFO数据读取和处理
 - 温度数据读取
+- SPI总线检测功能
 
 ## 项目结构
 
@@ -27,15 +28,62 @@ IIM42652/
 │   ├── main.c                    # 主程序入口
 │   ├── platform.c                # 平台相关实现
 │   └── platform.h                # 平台相关头文件
+├── test/                         # 测试程序源码
+│   ├── main.c                    # 测试程序入口
+│   ├── spi_detect.c              # SPI检测工具源码
+│   └── spi_detect.h              # SPI检测工具头文件
 ├── out/                          # 输出目录（存放编译后的可执行文件）
 ├── xmake.lua                     # XMake构建配置
 └── README.md                     # 项目说明文档
+```
+
+## 新增功能：SPI检测工具
+
+新增了一个专门用于检测SPI总线上是否存在IIM42652传感器的工具。此工具可在嵌入式Linux系统中使用，以验证传感器是否正确连接。
+
+### SPI检测工具功能
+
+- 自动打开指定的SPI设备（默认为/dev/spidev0.0）
+- 通过SPI协议与IIM42652通信
+- 读取WHOAMI寄存器验证传感器身份
+- 输出检测结果和错误信息
+
+### SPI检测工具使用方法
+
+```bash
+# 编译SPI检测工具
+xmake build spi_detector
+
+# 运行检测工具（默认使用/dev/spidev0.0）
+./out/spi_detector
+
+# 如果需要指定不同的SPI设备
+./out/spi_detector -d /dev/spidev1.0
+```
+
+### 预期输出
+
+如果传感器存在且连接正确，您将看到类似以下的输出：
+
+```
+IIM42652 SPI Detection Tool
+============================
+Successfully opened SPI connection to /dev/spidev0.0
+Attempting to initialize IIM42652 sensor via SPI...
+Successfully initialized IIM42652 sensor via SPI
+WHOAMI register value: 0x65
+SUCCESS: IIM42652 chip detected via SPI! (Correct WHOAMI value)
+Chip is present and responding correctly on SPI bus.
+
+SPI detection completed successfully!
+IIM42652 chip is present and communicating via SPI.
 ```
 
 ## 依赖项
 
 - [XMake](https://xmake.io) - 跨平台构建工具
 - InvenSense IIM42652官方驱动库 (已包含在项目中)
+- Linux SPI子系统支持
 
 ## 构建方法
 
@@ -43,6 +91,7 @@ IIM42652/
 
 - XMake 构建系统
 - GCC 或 Clang 编译器
+- Linux系统上的SPI设备接口支持
 
 ### 2. 构建步骤
 
@@ -50,11 +99,17 @@ IIM42652/
 # 进入项目目录
 cd IIM42652
 
-# 执行构建
+# 构建主应用程序
+xmake build IIM42652
+
+# 构建SPI检测工具
+xmake build spi_detector
+
+# 或者构建所有目标
 xmake
 
 # 构建完成后，可执行文件会被自动复制到out/目录
-# 同时也位于 ./build/linux/x86_64/release/IIM42652
+# 同时也位于 ./build/linux/x86_64/release/ 目录下
 ```
 
 ### 3. Out目录机制
@@ -164,6 +219,7 @@ int rc = inv_ixm42xxx_init(&sensor_driver, &serif, handle_fifo_data);
 1. 本项目在桌面环境下主要用于验证代码框架，在实际硬件上才能完成完整功能测试。
 2. 传感器与MCU之间的通信接口（SPI/I2C）需要根据硬件设计进行相应配置。
 3. 电源管理配置需要参考IIM42652数据手册进行优化。
+4. 在嵌入式Linux系统中使用SPI检测工具时，可能需要root权限访问SPI设备节点。
 
 ## 参考资料
 
