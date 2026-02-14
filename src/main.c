@@ -14,6 +14,7 @@
 #include "Ixm42xxxDefs.h"
 #include "Message.h"
 #include "ErrorHelper.h"
+#include "platform.h"
 
 /* Structure to handle the device driver */
 static struct inv_ixm42xxx sensor_driver;

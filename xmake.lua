@@ -3,7 +3,13 @@ add_rules("mode.debug", "mode.release")
 target("IIM42652")
     set_kind("binary")
     add_files("src/*.c", "public.mcu.iim42652/Ixm42xxx/*.c")  -- 添加所有C源文件
-    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src")  -- 添加头文件路径
+    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")  -- 添加头文件路径
+    add_defines("ICM42652")  -- 定义芯片型号
+
+target("spi_detector")
+    set_kind("binary")
+    add_files("test/*.c", "public.mcu.iim42652/Ixm42xxx/*.c", "src/platform.c")  -- 添加测试源文件、驱动库和平台实现
+    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")  -- 添加头文件路径
     add_defines("ICM42652")  -- 定义芯片型号
 
 -- 构建后脚本：创建out文件夹并将可执行文件复制到那里

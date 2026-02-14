@@ -33,4 +33,4 @@ void inv_helper_enable_irq(void);
 }
 #endif
 
-#endif /* _PLATFORM_H_ */
+#endif
