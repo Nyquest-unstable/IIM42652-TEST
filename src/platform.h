@@ -2,6 +2,9 @@
 #define _PLATFORM_H_
 
 #include <stdint.h>
+#include "Ixm42xxxDriver_HL.h"
+#include "InvError.h"
+#include "Ixm42xxxDefs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +32,8 @@ void inv_helper_disable_irq(void);
  */
 void inv_helper_enable_irq(void);
 
+int platform_spi_read(struct inv_ixm42xxx_serif *serif, uint8_t reg, uint8_t *buf, uint32_t len); 
+int platform_spi_write(struct inv_ixm42xxx_serif *serif, uint8_t reg, const uint8_t *buf, uint32_t len); 
 #ifdef __cplusplus
 }
 #endif
