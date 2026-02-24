@@ -1,96 +1,74 @@
 add_rules("mode.debug", "mode.release")
 
+-- 工程基础配置（补全，避免解析异常）
+set_project("IIM42652-TEST")
+set_version("1.0.0")
+set_languages("c99")
+
+-- ==============================================
+-- 核心：定义指向 LubanCat SDK 自带工具链的配置
+-- ==============================================
+toolchain("rv1126_lubancat")
+    set_kind("standalone")
+    -- 1. 工具链 bin 目录（精准指向你提供的路径）
+    set_bindir("/home/lubancat/LubanCat_SDK/prebuilts/gcc/linux-x86/arm/gcc-arm-10.3-2021.07-x86_64-arm-none-linux-gnueabihf/bin")
+    -- 2. 交叉编译前缀（匹配工具链：arm-none-linux-gnueabihf-）
+    set_cross("arm-none-linux-gnueabihf-")
+    
+    -- 3. RV1126 (Cortex-A7) 专属编译优化
+    add_cflags("-march=armv7-a", "-mtune=cortex-a7", "-mfpu=neon-vfpv4", "-mfloat-abi=hard", "-fPIC")
+    add_asflags("-march=armv7-a", "-mtune=cortex-a7", "-mfpu=neon-vfpv4", "-mfloat-abi=hard")
+    
+    -- 4. 静态编译选项（解决开发板 "not found" 问题）
+    add_cflags("-static")
+    add_ldflags("-static", "-static-libgcc", "-lm", "-lc")  -- 显式链接静态库
+
+
+-- ==============================================
+-- 目标配置：关联 RV1126 工具链
+-- ==============================================
 target("IIM42652")
     set_kind("binary")
-    add_files("src/*.c", "public.mcu.iim42652/Ixm42xxx/*.c")  -- 添加所有C源文件
-    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")  -- 添加头文件路径
-    add_defines("ICM42652")  -- 定义芯片型号
+    add_files("src/*.c", "public.mcu.iim42652/Ixm42xxx/*.c")
+    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")
+    add_defines("ICM42652")
+    
+    -- 指定 RV1126 编译环境
+    set_plat("linux")       -- RV1126 运行 Linux 系统
+    set_arch("arm")         -- ARM32 架构
+    set_toolchains("rv1126_lubancat")-- 关联上面定义的 poky 工具链
 
-target("spi_detector")
-    set_kind("binary")
-    add_files("test/*.c", "public.mcu.iim42652/Ixm42xxx/*.c", "src/platform.c")  -- 添加测试源文件、驱动库和平台实现
-    add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")  -- 添加头文件路径
-    add_defines("ICM42652")  -- 定义芯片型号
+-- target("spi_detector")
+--     set_kind("binary")
+--     add_files("test/*.c", "public.mcu.iim42652/Ixm42xxx/*.c", "src/platform.c")
+--     add_includedirs("public.mcu.iim42652/Ixm42xxx", "src", "test")
+--     add_defines("ICM42652")
+--
+--     -- 同样关联 RV1126 poky 工具链
+--     set_plat("linux")
+--     set_arch("arm")
+--     set_toolchains("rv1126")
 
--- 构建后脚本：创建out文件夹并将可执行文件复制到那里
+-- ==============================================
+-- 构建后脚本：复制 RV1126 产物到 out/rv1126 目录
+-- ==============================================
 after_build(function (target)
-    local out_dir = path.join(os.projectdir(), "out")
+    local out_dir = path.join(os.projectdir(), "out", "rv1126")  -- 新增 rv1126 子目录，区分产物
     os.mkdir(out_dir)
     
     local exe_name = target:targetfile()
-    local exe_basename = path.filename(exe_name)
-    local dest_path = path.join(out_dir, exe_basename)
-    
-    cprint("${yellow}Copying executable to out folder...")
-    os.cp(exe_name, dest_path)
-    cprint("${green}Executable copied to: %s", dest_path)
+    if os.isfile(exe_name) then  -- 增加文件存在性检查，避免报错
+        local exe_basename = path.filename(exe_name)
+        local dest_path = path.join(out_dir, exe_basename)
+        
+        cprint("${yellow}Copying RV1126 executable to out folder...")
+        os.cp(exe_name, dest_path)
+        cprint("${green}RV1126 executable copied to: %s", dest_path)
+        
+        -- 可选：验证产物架构（输出 ARM32 则正确）
+        local file_info = os.iorun("file " .. dest_path)
+        cprint("${cyan}File architecture: %s", file_info:sub(1, 50))  -- 只显示前50个字符，避免刷屏
+    else
+        cprint("${red}Error: Executable file %s not found!", exe_name)
+    end
 end)
-
---
--- If you want to known more usage about xmake, please see https://xmake.io
---
--- ## FAQ
---
--- You can enter the project directory firstly before building project.
---
---   $ cd projectdir
---
--- 1. How to build project?
---
---   $ xmake
---
--- 2. How to configure project?
---
---   $ xmake f -p [macosx|linux|iphoneos ..] -a [x86_64|i386|arm64 ..] -m [debug|release]
---
--- 3. Where is the build output directory?
---
---   The default output directory is `./build` and you can configure the output directory.
---
---   $ xmake f -o outputdir
---   $ xmake
---
--- 4. How to run and debug target after building project?
---
---   $ xmake run [targetname]
---   $ xmake run -d [targetname]
---
--- 5. How to install target to the system directory or other output directory?
---
---   $ xmake install
---   $ xmake install -o installdir
---
--- 6. Add some frequently-used compilation flags in xmake.lua
---
--- @code
---    -- add debug and release modes
---    add_rules("mode.debug", "mode.release")
---
---    -- add macro definition
---    add_defines("NDEBUG", "_GNU_SOURCE=1")
---
---    -- set warning all as error
---    set_warnings("all", "error")
---
---    -- set language: c99, c++11
---    set_languages("c99", "c++11")
---
---    -- set optimization: none, faster, fastest, smallest
---    set_optimize("fastest")
---
---    -- add include search directories
---    add_includedirs("/usr/include", "/usr/local/include")
---
---    -- add link libraries and search directories
---    add_links("tbox")
---    add_linkdirs("/usr/local/lib", "/usr/lib")
---
---    -- add system link libraries
---    add_syslinks("z", "pthread")
---
---    -- add compilation and link flags
---    add_cxflags("-stdnolib", "-fno-strict-aliasing")
---    add_ldflags("-L/usr/local/lib", "-lpthread", {force = true})
---
--- @endcode
---
