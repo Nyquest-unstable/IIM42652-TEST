@@ -1,6 +1,9 @@
 # IIM42652 六轴运动传感器测试程序框架
 
 本项目是一个基于InvenSense IIM42652六轴运动传感器（3轴加速度计+3轴陀螺仪）的测试应用，用于验证传感器的基本功能。
+## 编译方法
+1. (只需要执行一次）先使用script，中的set_env.sh 设置接收机的密码，这个脚本在设置完成之后，会自动调用./script/mount-targetmachine.sh 将目标机器的/mnt (取决于目标机器默认ftp配置位置） 挂载到，~/target-machine中。
+2. ./build.sh 会先xmake编译，然后生成compile_commands脚本，然后调用 script/deploy.sh 将拷贝到out目录下的文件再传输到目标机器中，之后调用ssh-auto.sh 自动连接到目标机器，这样就可以手动执行编译出来的可执行文件
 
 ## 简介
 
