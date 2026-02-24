@@ -33,10 +33,11 @@ int main(int argc, char **argv)
     // This is just a placeholder - in a real implementation you would
     // need to provide actual function pointers for the transport
     struct inv_ixm42xxx_serif serif;
-    serif.read_reg = NULL;      // Would need to implement SPI/I2C read
-    serif.write_reg = NULL;     // Would need to implement SPI/I2C write
-    serif.max_read = 0;         // Max bytes for read transaction
-    serif.max_write = 0;        // Max bytes for write transaction
+    serif.read_reg = &platform_spi_read;      // Would need to implement SPI/I2C read
+    serif.write_reg = &platform_spi_write;     // Would need to implement SPI/I2C write
+    serif.max_read = 256;         // Max bytes for read transaction
+    serif.max_write = 256;        // Max bytes for write transaction
+    serif.context = (void*)"/dev/spidev0.0";
     
     printf("Attempting to initialize IIM42652 sensor...\n");
     
