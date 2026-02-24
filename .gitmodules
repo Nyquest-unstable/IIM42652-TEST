@@ -1,0 +1,6 @@
+[submodule "public.mcu.iim42652"]
+
+	path = public.mcu.iim42652
+
+	url = git@github.com:InvenSenseInc/public.mcu.iim42652.git
+
