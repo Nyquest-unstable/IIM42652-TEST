@@ -67,7 +67,7 @@ after_build(function (target)
         
         -- 可选：验证产物架构（输出 ARM32 则正确）
         local file_info = os.iorun("file " .. dest_path)
-        cprint("${cyan}File architecture: %s", file_info:sub(1, 50))  -- 只显示前50个字符，避免刷屏
+        cprint("${cyan}File architecture: %s", file_info:sub(1, 150))  -- 只显示前50个字符，避免刷屏
     else
         cprint("${red}Error: Executable file %s not found!", exe_name)
     end
