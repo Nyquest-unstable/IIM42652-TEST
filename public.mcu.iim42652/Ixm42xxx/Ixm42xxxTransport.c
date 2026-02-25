@@ -82,7 +82,7 @@ int inv_ixm42xxx_read_reg(struct inv_ixm42xxx * s, uint8_t reg, uint32_t len, ui
 int inv_ixm42xxx_write_reg(struct inv_ixm42xxx * s, uint8_t reg, uint32_t len, const uint8_t * buf)
 {
 	// First field of struct inv_ixm42xxx is assumed to be a struct inv_ixm42xxx_transport object.
-	// So let's cast s to struct inv_ixm42xxx_transport and ignore the rest of struct inv_ixm42xxx.
+	// So let's cast s to struct inv_ixm42xxx_transport and ignore the rest of struct inv_ixim42xxx.
 	struct inv_ixm42xxx_transport *t = (struct inv_ixm42xxx_transport *)s;
 	uint32_t i;
 	
