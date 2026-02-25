@@ -30,6 +30,7 @@ static void inv_ixm42xxx_format_data(const uint8_t endian, const uint8_t *in, ui
 
 int inv_ixm42xxx_set_reg_bank(struct inv_ixm42xxx * s, uint8_t bank)
 {
+    printf ("setting reg bank %d\n", bank);
 	return inv_ixm42xxx_write_reg(s, MPUREG_REG_BANK_SEL, 1, &bank);
 }
 
