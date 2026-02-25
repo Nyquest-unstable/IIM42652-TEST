@@ -49,33 +49,41 @@ int platform_spi_read(struct inv_ixm42xxx_serif *serif, uint8_t reg, uint8_t *bu
 
     // IIM42652 SPI 读规则：寄存器地址需置位最高位（0x80）
     uint8_t tx_buf[1] = {reg | 0x80};
+    
+    // 临时缓冲区：1字节地址回读 + len字节数据
+    uint8_t rx_buf[256];
+    if (len + 1 > sizeof(rx_buf)) {
+        close(fd);
+        return INV_ERROR_SIZE;  // 需要定义这个错误码
+    }
     struct spi_ioc_transfer tr = {
         .tx_buf = (unsigned long)tx_buf,
-        .rx_buf = (unsigned long)buf,
-        .len = len, // 地址1字节 + 数据len字节
+        .rx_buf = (unsigned long)rx_buf,
+        .len = len + 1, // 地址1字节 + 数据len字节
         .speed_hz = 500000, // SPI 速率（根据传感器手册调整，如 1MHz）
         .bits_per_word = 8,
     };
 
     int rc = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
     
-    // ===== 打印发送数据 =====
+    // 调试打印
     printf("SPI Read - Reg: 0x%02X, Len: %u\n", reg, len);
-    printf("TX[%zu]: ", sizeof(tx_buf));
-    for (size_t i = 0; i < sizeof(tx_buf); i++) {
-        printf("%02X ", tx_buf[i]);
+    printf("TX: %02X\n", tx_buf[0]);
+    printf("RX raw: ");
+    for (uint32_t i = 0; i < len + 1; i++) {
+        printf("%02X ", rx_buf[i]);
     }
     printf("\n");
-    
-    // ===== 打印原始接收数据 =====
-    printf("RX raw[%u]: ", len);
-    for (uint32_t i = 0; i < len; i++) {
-        printf("%02X ", buf[i]);
-    }
-    printf("\n");
+
     close(fd);
 
-    return (rc < 0) ? INV_ERROR_IO : INV_ERROR_SUCCESS;
+    if (rc < 0)
+        return INV_ERROR_IO;
+
+    // 关键：跳过第1字节（地址回读），复制有效数据到buf
+    memcpy(buf, rx_buf + 1, len);
+
+    return INV_ERROR_SUCCESS;
 }
 
 extern imu_spi_cfg_t imu_spi_cfg_X6;
@@ -105,14 +113,14 @@ int platform_spi_write(struct inv_ixm42xxx_serif *serif, uint8_t reg, const uint
     if (fd < 0) return INV_ERROR_IO;
 
     // 拼接「寄存器地址 + 数据」
-    uint8_t tx_buf[len];
+    uint8_t tx_buf[len + 1];
     tx_buf[0] = reg & 0x7F; // 写地址：最高位清0
     memcpy(&tx_buf[1], buf, len);
 
     struct spi_ioc_transfer tr = {
         .tx_buf = (unsigned long)tx_buf,
         .rx_buf = (unsigned long)NULL,
-        .len = len,
+        .len = len + 1,
         .speed_hz = 500000,
         .bits_per_word = 8,
     };
