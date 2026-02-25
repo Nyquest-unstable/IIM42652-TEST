@@ -30,7 +30,7 @@ static void inv_ixm42xxx_format_data(const uint8_t endian, const uint8_t *in, ui
 
 int inv_ixm42xxx_set_reg_bank(struct inv_ixm42xxx * s, uint8_t bank)
 {
-    printf ("setting reg bank %d\n", bank);
+    printf("setting reg bank %d\n", bank);
 	return inv_ixm42xxx_write_reg(s, MPUREG_REG_BANK_SEL, 1, &bank);
 }
 
@@ -893,6 +893,7 @@ int inv_ixm42xxx_get_data_from_fifo(struct inv_ixm42xxx * s)
 		if(status != INV_ERROR_SUCCESS)
 			return status;
 		inv_ixm42xxx_format_data(IXM42XXX_INTF_CONFIG0_DATA_LITTLE_ENDIAN, data, &packet_count);
+        printf ("zc packet_count %d\n", packet_count);
 
 		if (packet_count > 0) {
 			/* Read FIFO only when data is expected in FIFO */
