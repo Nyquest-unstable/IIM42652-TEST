@@ -48,29 +48,35 @@ int platform_spi_read(struct inv_ixm42xxx_serif *serif, uint8_t reg, uint8_t *bu
     if (fd < 0) return INV_ERROR_IO;
 
     // IIM42652 SPI 读规则：寄存器地址需置位最高位（0x80）
-    uint8_t tx_buf[1] = {reg | 0x80};
     
+    uint8_t tx_buf[256];
     // 临时缓冲区：1字节地址回读 + len字节数据
     uint8_t rx_buf[256];
     if (len + 1 > sizeof(rx_buf)) {
         close(fd);
         return INV_ERROR_SIZE;  // 需要定义这个错误码
     }
+    tx_buf[0] = reg | 0x80;
+    memset(tx_buf + 1, 0x00, len);
     struct spi_ioc_transfer tr = {
         .tx_buf = (unsigned long)tx_buf,
         .rx_buf = (unsigned long)rx_buf,
         .len = len + 1, // 地址1字节 + 数据len字节
         .speed_hz = 500000, // SPI 速率（根据传感器手册调整，如 1MHz）
         .bits_per_word = 8,
+        // .cs_change = 1,                     // 关键：发送地址后释放CS（避免时序错误）
+        .delay_usecs = 0,
     };
 
     int rc = ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
     
     // 调试打印
     printf("SPI Read - Reg: 0x%02X, Len: %u\n", reg, len);
-    printf("TX: %02X\n", tx_buf[0]);
-    printf("RX raw: ");
-    for (uint32_t i = 0; i < len + 1; i++) {
+    // printf("TX: %02X\n", tx_buf[0]);
+    
+    // 或者明确标注：
+    printf("RX raw[0]=0x%02X (discard), data: ", rx_buf[0]);
+    for (uint32_t i = 1; i < len + 1; i++) {
         printf("%02X ", rx_buf[i]);
     }
     printf("\n");

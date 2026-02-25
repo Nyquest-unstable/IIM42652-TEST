@@ -45,7 +45,7 @@ struct inv_ixm42xxx_serif serif = {
 static int imu_type_check(int fd)
 {
     uint8_t tx_icm42688[2] = {0xF5, 0x00};
-    uint8_t rx_icm42688[2] = {0};
+    uint8_t rx_icm42688[3] = {0};
     printf("fd is %d\n", fd);
     spi_write_read_data(fd, tx_icm42688, rx_icm42688, sizeof(rx_icm42688));
     if (0x47 == rx_icm42688[0] || 0x6F == rx_icm42688[1])
@@ -56,6 +56,7 @@ static int imu_type_check(int fd)
     else {
         printf("read data is %02X, %02X\n", rx_icm42688[0], rx_icm42688[1]);
     }
+    printf ("the third data is %02X\n", rx_icm42688[2]);
 
     platform_spi_read(&serif, 0xF5, rx_icm42688, sizeof(rx_icm42688));
     if (0x47 == rx_icm42688[0] || 0x6F == rx_icm42688[1])
@@ -66,9 +67,16 @@ static int imu_type_check(int fd)
     else {
         printf("read data is %02X, %02X\n", rx_icm42688[0], rx_icm42688[1]);
     }
+    printf ("the third data is %02X\n", rx_icm42688[2]);
     return 0;
 
 }
+
+int32_t interupt_function_imu()
+{
+    return 0;
+}
+
 int main(int argc, char **argv) 
 {
     printf("IIM42652 Motion Sensor Test Application\n");
@@ -144,17 +152,16 @@ int main(int argc, char **argv)
         printf("Reading sensor data... (iteration %d)\n", i+1);
 
         // In a real implementation, this would trigger reading data from the sensor
-        // rc = inv_ixm42xxx_get_data_from_fifo(&sensor_driver);
+        rc = inv_ixm42xxx_get_data_from_fifo(&sensor_driver);
 
         // Sleep briefly (in real implementation, replace with appropriate delay)
         #ifdef _WIN32
             Sleep(1000);  // On Windows (1 second)
         #else
-            usleep(1000000);  // On Linux/Unix (1 second)
+            usleep(100000);  // On Linux/Unix (1 second)
         #endif
 
         // For demonstration purposes, we'll just print a sample output
-        printf("Sample data: Accel[X,Y,Z]: 0, 0, 0 | Gyro[X,Y,Z]: 0, 0, 0 | Temp: 0\n");
     }
     
     printf("\nTest completed successfully!\n");
@@ -166,6 +173,8 @@ static void handle_fifo_data(inv_ixm42xxx_sensor_event_t * event)
 {
     // This function will be called when sensor data is available
     // In a real implementation, this would process the sensor data
+    //
+    printf ("handling fifo data\n");
     
     if(event->sensor_mask & (1 << INV_IXM42XXX_SENSOR_ACCEL)) {
         printf("Accel data: [%d, %d, %d]\n", 
