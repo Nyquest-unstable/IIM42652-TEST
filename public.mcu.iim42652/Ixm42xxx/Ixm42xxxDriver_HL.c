@@ -1747,9 +1747,9 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	
 	/* Set interrupt config */
 	status |= inv_ixm42xxx_set_config_int1(s,&config_int);
-	config_int.INV_IXM42XXX_UI_DRDY  = INV_IXM42XXX_ENABLE;
-	config_int.INV_IXM42XXX_FIFO_THS = INV_IXM42XXX_DISABLE;
-	status |= inv_ixm42xxx_set_config_ibi(s,&config_int);
+	// config_int.INV_IXM42XXX_UI_DRDY  = INV_IXM42XXX_ENABLE;
+	// config_int.INV_IXM42XXX_FIFO_THS = INV_IXM42XXX_DISABLE;
+	// status |= inv_ixm42xxx_set_config_ibi(s,&config_int);
 	
 	/* Set the ASY_RESET_DISABLE bit to 0 (async enabled) in order to chop Tpulse as soon as interrupt status is read
 	 * Guideline is to set the ASY_RESET_DISABLE bit to 0 in pulse mode
