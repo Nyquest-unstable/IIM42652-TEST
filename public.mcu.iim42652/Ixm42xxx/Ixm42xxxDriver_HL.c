@@ -301,7 +301,7 @@ int inv_ixm42xxx_enable_accel_low_noise_mode(struct inv_ixm42xxx * s)
 		if(s->fifo_is_used) {
 			status |= inv_ixm42xxx_read_reg(s, MPUREG_FIFO_CONFIG1, 1, &data);
 			data |= (uint8_t)IXM42XXX_FIFO_CONFIG1_ACCEL_EN;
-			data |= (uint8_t)IXM42XXX_FIFO_CONFIG1_GYRO_EN;
+			// data |= (uint8_t)IXM42XXX_FIFO_CONFIG1_GYRO_EN;
 			if(s->fifo_highres_enabled)
 				data |= (uint8_t)IXM42XXX_FIFO_CONFIG1_HIRES_EN;
 			status |= inv_ixm42xxx_write_reg(s, MPUREG_FIFO_CONFIG1, 1, &data);
