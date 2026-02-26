@@ -16,7 +16,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * __________________________________________________________________
  */
-
+#include "Ixm42xxxDriver_HL_apex.h"
 #include "Ixm42xxxDefs.h"
 #include "Ixm42xxxExtFunc.h"
 #include "Ixm42xxxDriver_HL.h"
@@ -1694,17 +1694,17 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	inv_ixm42xxx_interrupt_parameter_t config_int = {
 		.INV_IXM42XXX_UI_FSYNC      = INV_IXM42XXX_DISABLE,
 		.INV_IXM42XXX_UI_DRDY       = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_FIFO_THS      = INV_IXM42XXX_ENABLE,	  
+		.INV_IXM42XXX_FIFO_THS      = INV_IXM42XXX_DISABLE,	  
 		.INV_IXM42XXX_FIFO_FULL     = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_SMD           = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_WOM_X         = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_WOM_Y         = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_WOM_Z         = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_STEP_DET      = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_STEP_CNT_OVFL = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_TILT_DET      = INV_IXM42XXX_ENABLE,	  
-		.INV_IXM42XXX_FF_DET        = INV_IXM42XXX_ENABLE,	
-		.INV_IXM42XXX_LOWG_DET      = INV_IXM42XXX_ENABLE,
+		.INV_IXM42XXX_SMD           = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_WOM_X         = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_WOM_Y         = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_WOM_Z         = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_STEP_DET      = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_STEP_CNT_OVFL = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_TILT_DET      = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_FF_DET        = INV_IXM42XXX_DISABLE,	
+		.INV_IXM42XXX_LOWG_DET      = INV_IXM42XXX_DISABLE,
 		.INV_IXM42XXX_TAP_DET       = INV_IXM42XXX_ENABLE,	
 	};
 
@@ -1717,6 +1717,8 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	gyro_cfg_0_reg |= (uint8_t)IXM42XXX_GYRO_CONFIG0_FS_SEL_2000dps;
 	accel_cfg_0_reg &= (uint8_t)~BIT_ACCEL_CONFIG0_FS_SEL_MASK;
 	accel_cfg_0_reg |= (uint8_t)IXM42XXX_ACCEL_CONFIG0_FS_SEL_4g;
+	accel_cfg_0_reg &= (uint8_t)~BIT_GYRO_CONFIG0_ODR_MASK;
+	accel_cfg_0_reg |= (uint8_t)IXM42XXX_GYRO_CONFIG0_ODR_200_HZ; //200Hz 低功耗模式； 500 Hz 普通模式
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_GYRO_CONFIG0, 1, &gyro_cfg_0_reg);
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_CONFIG0, 1, &accel_cfg_0_reg);
 	
@@ -1783,13 +1785,29 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	data = ((uint8_t)IXM42XXX_SMD_CONFIG_WOM_INT_MODE_ANDED) | ((uint8_t)IXM42XXX_SMD_CONFIG_WOM_MODE_CMP_PREV);
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_SMD_CONFIG, 1, &data);
 
+    /*tap模式编程*/
+    // 接下来就是设置tap功能模式
+    inv_ixm42xxx_tap_parameters_t tap_param = {0};
+    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
+    inv_ixm42xxx_configure_tap_parameters(s,&tap_param); 
+    inv_ixm42xxx_enable_tap(s);
+    //初始化传感器配置
+    inv_ixm42xxx_disable_gyro(s);
 	/* by default, set IIR filter BW to ODR/4 for LN, 16x averaging for GLP, 16x averaging for ALP */
 	s->avg_bw_setting.acc_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_BW_4;
-	s->avg_bw_setting.gyr_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_GYRO_FILT_BW_4;
+	// s->avg_bw_setting.gyr_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_GYRO_FILT_BW_4;
 	s->avg_bw_setting.acc_lp_avg = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_AVG_16;
-
+    inv_ixm42xxx_enable_accel_low_power_mode(s);
+    inv_ixm42xxx_sleep_us(1000);
 	/* Reset self-test result variable*/
 	s->st_result = 0;
+
+    // apex 硬件编程
+    inv_ixm42xxx_tap_parameters_t tap_param_apex = {0};
+    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
+    inv_ixm42xxx_configure_tap_parameters(s,&tap_param); 
+    inv_ixm42xxx_sleep_us(1000);
+    inv_ixm42xxx_enable_tap(s);
 
 	return status;
 }

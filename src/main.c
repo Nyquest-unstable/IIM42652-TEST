@@ -1,3 +1,5 @@
+#include "Ixm42xxxDriver_HL_apex.h"
+#include "Ixm42xxxTransport.h"
 #include <stdio.h>
 #include <linux/spi/spidev.h>
 #include <stdint.h>
@@ -124,18 +126,6 @@ int main(int argc, char **argv)
     // Configure the sensor for basic accelerometer and gyroscope readings
     printf("Configuring sensor for basic measurements...\n");
 
-    // Set full scale ranges
-    rc |= inv_ixm42xxx_set_accel_fsr(&sensor_driver, IXM42XXX_ACCEL_CONFIG0_FS_SEL_16g);
-    rc |= inv_ixm42xxx_set_gyro_fsr(&sensor_driver, IXM42XXX_GYRO_CONFIG0_FS_SEL_2000dps);
-
-    // Set output data rates
-    rc |= inv_ixm42xxx_set_accel_frequency(&sensor_driver, IXM42XXX_ACCEL_CONFIG0_ODR_50_HZ);
-    rc |= inv_ixm42xxx_set_gyro_frequency(&sensor_driver, IXM42XXX_GYRO_CONFIG0_ODR_50_HZ);
-
-    // Enable low noise mode
-    rc |= inv_ixm42xxx_enable_accel_low_noise_mode(&sensor_driver);
-    rc |= inv_ixm42xxx_enable_gyro_low_noise_mode(&sensor_driver);
-
     if(rc != INV_ERROR_SUCCESS) {
         printf("Failed to configure sensor! Error code: %d\n", rc);
         return -1;
@@ -145,15 +135,20 @@ int main(int argc, char **argv)
     printf("Starting data acquisition loop (will run for 10 seconds)...\n");
 
     // Main data acquisition loop
-    for(int i = 0; i < 10; i++) {
+    for(; ; ) {
         // In a real implementation, we would wait for interrupt or poll the FIFO
         // Here we just simulate the process
 
-        printf("Reading sensor data... (iteration %d)\n", i+1);
-
         // In a real implementation, this would trigger reading data from the sensor
-        rc = inv_ixm42xxx_get_data_from_fifo(&sensor_driver);
-
+        // rc = inv_ixm42xxx_get_data_from_fifo(&sensor_driver);
+        uint8_t data = 0;
+        inv_ixm42xxx_read_reg(&sensor_driver, MPUREG_INT_STATUS3, 1, &data);
+        printf("interrupt register: 0x%02X\n", data);
+        inv_ixm42xxx_tap_data_t tap_data = {0};
+        inv_ixm42xxx_get_tap_data(&sensor_driver, &tap_data);
+        printf("interrupt tap num: 0x%02X\n", tap_data.tap_num);
+        printf("interrupt tap axis: 0x%02X\n", tap_data.tap_axis);
+        printf("interrupt tap dir: 0x%02X\n", tap_data.tap_dir);
         // Sleep briefly (in real implementation, replace with appropriate delay)
         #ifdef _WIN32
             Sleep(1000);  // On Windows (1 second)
