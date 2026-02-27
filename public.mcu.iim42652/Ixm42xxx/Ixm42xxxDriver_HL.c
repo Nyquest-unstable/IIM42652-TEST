@@ -1781,8 +1781,8 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	status |= inv_ixm42xxx_set_config_int1(s, &config_int);
     // data = 0x0F;
     // status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE0, 1, &data);
-    // data = 0x0F;
-    // status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE1, 1, &data);
+    data = 0x0F;
+    status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE1, 1, &data);
     inv_ixm42xxx_sleep_us(50000);
 	data = 0x0E;
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_SMD_CONFIG, 1, &data);
