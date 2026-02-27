@@ -142,18 +142,25 @@ int main(int argc, char **argv)
         // In a real implementation, this would trigger reading data from the sensor
         // rc = inv_ixm42xxx_get_data_from_fifo(&sensor_driver);
         uint8_t data = 0;
-        inv_ixm42xxx_read_reg(&sensor_driver, MPUREG_INT_STATUS3, 1, &data);
-        printf("interrupt register: 0x%02X\n", data);
-        inv_ixm42xxx_tap_data_t tap_data = {0};
-        inv_ixm42xxx_get_tap_data(&sensor_driver, &tap_data);
-        printf("interrupt tap num: 0x%02X\n", tap_data.tap_num);
-        printf("interrupt tap axis: 0x%02X\n", tap_data.tap_axis);
-        printf("interrupt tap dir: 0x%02X\n", tap_data.tap_dir);
+        uint8_t data2 = 0;
+
+        // inv_ixm42xxx_set_reg_bank(&sensor_driver, 4);
+        // inv_ixm42xxx_read_reg(&sensor_driver, MPUREG_INT_SOURCE6_B4, 1, &data2); /* switch to bank4 for int_source6 */
+        // printf("MPUREG_INT_SOURCE6_B4 register data2: 0x%02X\n", data2);
+        // inv_ixm42xxx_set_reg_bank(&sensor_driver, 0);
+        //
+        inv_ixm42xxx_read_reg(&sensor_driver, MPUREG_INT_STATUS2, 1, &data);
+        printf("MPUREG_INT_STATUS2 register: 0x%02X\n", data);
+        // inv_ixm42xxx_tap_data_t tap_data = {0};
+        // inv_ixm42xxx_get_tap_data(&sensor_driver, &tap_data);
+        // printf("interrupt tap num: 0x%02X\n", tap_data.tap_num);
+        // printf("interrupt tap axis: 0x%02X\n", tap_data.tap_axis);
+        // printf("interrupt tap dir: 0x%02X\n", tap_data.tap_dir);
         // Sleep briefly (in real implementation, replace with appropriate delay)
         #ifdef _WIN32
             Sleep(1000);  // On Windows (1 second)
         #else
-            usleep(100000);  // On Linux/Unix (1 second)
+            usleep(1000000);  // On Linux/Unix (1 second)
         #endif
 
         // For demonstration purposes, we'll just print a sample output

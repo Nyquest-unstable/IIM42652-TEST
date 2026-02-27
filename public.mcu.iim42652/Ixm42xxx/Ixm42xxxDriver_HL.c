@@ -22,6 +22,7 @@
 #include "Ixm42xxxDriver_HL.h"
 #include "Ixm42xxxTransport.h"
 #include "Ixm42xxxVersion.h"
+#include <stdint.h>
 
 static int inv_ixm42xxx_configure_serial_interface(struct inv_ixm42xxx * s);
 static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s);
@@ -768,6 +769,7 @@ int inv_ixm42xxx_set_config_int1(struct inv_ixm42xxx * s, inv_ixm42xxx_interrupt
 	data[2] |= ((interrupt_to_configure->INV_IXM42XXX_TAP_DET != 0)       << BIT_INT_TAP_DET_INT_EN_POS);
 	
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE6_B4, 1, &data[2]); /* start with int_source6 since we are still in bank4 */
+
 	status |= inv_ixm42xxx_set_reg_bank(s, 0);
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE0, 2, data); /* burst write int_source0/int_source1 */
 
@@ -1691,123 +1693,147 @@ static int inv_ixm42xxx_init_hardware_from_ui(struct inv_ixm42xxx * s)
 	int status = 0;
 	uint8_t wom_threshold[3];
 	uint8_t gyro_cfg_0_reg, accel_cfg_0_reg, tmst_cfg_reg; 
-	inv_ixm42xxx_interrupt_parameter_t config_int = {
-		.INV_IXM42XXX_UI_FSYNC      = INV_IXM42XXX_DISABLE,
-		.INV_IXM42XXX_UI_DRDY       = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_FIFO_THS      = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_FIFO_FULL     = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_SMD           = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_WOM_X         = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_WOM_Y         = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_WOM_Z         = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_STEP_DET      = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_STEP_CNT_OVFL = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_TILT_DET      = INV_IXM42XXX_DISABLE,	  
-		.INV_IXM42XXX_FF_DET        = INV_IXM42XXX_DISABLE,	
-		.INV_IXM42XXX_LOWG_DET      = INV_IXM42XXX_DISABLE,
-		.INV_IXM42XXX_TAP_DET       = INV_IXM42XXX_ENABLE,	
-	};
 
 	status |= inv_ixm42xxx_device_reset(s);
+    inv_ixm42xxx_disable_wom(s);
+    inv_ixm42xxx_disable_smd(s);
 
-	/* Setup MEMs properties */
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_GYRO_CONFIG0, 1, &gyro_cfg_0_reg);
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_ACCEL_CONFIG0, 1, &accel_cfg_0_reg);
-	gyro_cfg_0_reg &= (uint8_t)~BIT_GYRO_CONFIG0_FS_SEL_MASK;
-	gyro_cfg_0_reg |= (uint8_t)IXM42XXX_GYRO_CONFIG0_FS_SEL_2000dps;
-	accel_cfg_0_reg &= (uint8_t)~BIT_ACCEL_CONFIG0_FS_SEL_MASK;
-	accel_cfg_0_reg |= (uint8_t)IXM42XXX_ACCEL_CONFIG0_FS_SEL_4g;
-	accel_cfg_0_reg &= (uint8_t)~BIT_GYRO_CONFIG0_ODR_MASK;
-	accel_cfg_0_reg |= (uint8_t)IXM42XXX_GYRO_CONFIG0_ODR_200_HZ; //200Hz 低功耗模式； 500 Hz 普通模式
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_GYRO_CONFIG0, 1, &gyro_cfg_0_reg);
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_CONFIG0, 1, &accel_cfg_0_reg);
-	
-	/* make sure FIFO is disabled */
-	data = IXM42XXX_FIFO_CONFIG_MODE_BYPASS;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_FIFO_CONFIG, 1, &data);
-	
-	/* Deactivate FSYNC by default */
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_FSYNC_CONFIG, 1, &data);
-	data &= (uint8_t)~BIT_FSYNC_CONFIG_UI_SEL_MASK;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_FSYNC_CONFIG, 1, &data);
-	
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_TMST_CONFIG, 1, &tmst_cfg_reg);
-	tmst_cfg_reg &= (uint8_t)~BIT_TMST_CONFIG_TMST_FSYNC_MASK; // == IXM42XXX_FSYNC_CONFIG_UI_SEL_NO
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_TMST_CONFIG, 1, &tmst_cfg_reg);
-	
-	/* Set default timestamp resolution 16us (Mobile use cases) */
-	status |= inv_ixm42xxx_configure_timestamp_resolution(s, IXM42XXX_TMST_CONFIG_RESOL_16us);
-	
-	status |= inv_ixm42xxx_configure_fifo(s, INV_IXM42XXX_FIFO_ENABLED);
-	
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_INT_CONFIG, 1, &data);
-	/* Enable push pull on INT1 to avoid moving in Test Mode after a soft reset */
-	data |= (uint8_t)IXM42XXX_INT_CONFIG_INT1_DRIVE_CIRCUIT_PP;
-	/* Configure the INT1 interrupt pulse as active high */
-	data |= (uint8_t)IXM42XXX_INT_CONFIG_INT1_POLARITY_HIGH;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG, 1, &data);
-	
-	/* Set interrupt config */
-	status |= inv_ixm42xxx_set_config_int1(s,&config_int);
-	// config_int.INV_IXM42XXX_UI_DRDY  = INV_IXM42XXX_ENABLE;
-	// config_int.INV_IXM42XXX_FIFO_THS = INV_IXM42XXX_DISABLE;
-	// status |= inv_ixm42xxx_set_config_ibi(s,&config_int);
-	
-	/* Set the ASY_RESET_DISABLE bit to 0 (async enabled) in order to chop Tpulse as soon as interrupt status is read
-	 * Guideline is to set the ASY_RESET_DISABLE bit to 0 in pulse mode
-	 * No effect in latch mode */
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_INT_CONFIG1, 1, &data);
-	data &= (uint8_t)~BIT_INT_CONFIG1_ASY_RST_MASK;
-	data |= (uint8_t)IXM42XXX_INT_CONFIG1_ASY_RST_ENABLED;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG1, 1, &data);
+	// /* make sure FIFO is disabled */
+	// data = IXM42XXX_FIFO_CONFIG_MODE_BYPASS;
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_FIFO_CONFIG, 1, &data);
+	//
+	// /* Deactivate FSYNC by default */
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_FSYNC_CONFIG, 1, &data);
+	// data &= (uint8_t)~BIT_FSYNC_CONFIG_UI_SEL_MASK;
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_FSYNC_CONFIG, 1, &data);
+	//
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_TMST_CONFIG, 1, &tmst_cfg_reg);
+	// tmst_cfg_reg &= (uint8_t)~BIT_TMST_CONFIG_TMST_FSYNC_MASK; // == IXM42XXX_FSYNC_CONFIG_UI_SEL_NO
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_TMST_CONFIG, 1, &tmst_cfg_reg);
+	//
+	// /* Set default timestamp resolution 16us (Mobile use cases) */
+	// status |= inv_ixm42xxx_configure_timestamp_resolution(s, IXM42XXX_TMST_CONFIG_RESOL_16us);
+	//
+	// status |= inv_ixm42xxx_configure_fifo(s, INV_IXM42XXX_FIFO_ENABLED);
 
-	/* Set the UI filter order to 2 for both gyro and accel */
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_GYRO_CONFIG1, 1, &data);
-	data &= (uint8_t)~BIT_GYRO_CONFIG1_GYRO_UI_FILT_ORD_MASK;
-	data |= (uint8_t)IXM42XXX_GYRO_CONFIG_GYRO_UI_FILT_ORD_2ND_ORDER;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_GYRO_CONFIG1, 1, &data);
-	status |= inv_ixm42xxx_read_reg(s, MPUREG_ACCEL_CONFIG1, 1, &data);
-	data &= (uint8_t)~BIT_ACCEL_CONFIG1_ACCEL_UI_FILT_ORD_MASK;
-	data |= (uint8_t)IXM42XXX_ACCEL_CONFIG_ACCEL_UI_FILT_ORD_2ND_ORDER;
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_CONFIG1, 1, &data);
-	
-	/* FIFO packets are 16bit format by default (i.e. high res is disabled) */
-	status |= inv_ixm42xxx_disable_high_resolution_fifo(s);
-	
+	// /* Set the UI filter order to 2 for both gyro and accel */
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_GYRO_CONFIG1, 1, &data);
+	// data &= (uint8_t)~BIT_GYRO_CONFIG1_GYRO_UI_FILT_ORD_MASK;
+	// data |= (uint8_t)IXM42XXX_GYRO_CONFIG_GYRO_UI_FILT_ORD_2ND_ORDER;
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_GYRO_CONFIG1, 1, &data);
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_ACCEL_CONFIG1, 1, &data);
+	// data &= (uint8_t)~BIT_ACCEL_CONFIG1_ACCEL_UI_FILT_ORD_MASK;
+	// data |= (uint8_t)IXM42XXX_ACCEL_CONFIG_ACCEL_UI_FILT_ORD_2ND_ORDER;
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_CONFIG1, 1, &data);
+
+	// /* FIFO packets are 16bit format by default (i.e. high res is disabled) */
+	// status |= inv_ixm42xxx_disable_high_resolution_fifo(s);
+
 	/* For retro-compatibility, configure WOM to compare current sample with the previous sample and to produce signal when all axis exceed 52 mg */
 	status |= inv_ixm42xxx_set_reg_bank(s, 4); /* Set memory bank 4 */
 	wom_threshold[0] = IXM42XXX_DEFAULT_WOM_THS_MG; /* Set X threshold */
 	wom_threshold[1] = IXM42XXX_DEFAULT_WOM_THS_MG; /* Set Y threshold */
 	wom_threshold[2] = IXM42XXX_DEFAULT_WOM_THS_MG; /* Set Z threshold */
 	status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_WOM_X_THR_B4, sizeof(wom_threshold), &wom_threshold[0]);
-	
 	status |= inv_ixm42xxx_set_reg_bank(s, 0); /* Set memory bank 0 */
-	data = ((uint8_t)IXM42XXX_SMD_CONFIG_WOM_INT_MODE_ANDED) | ((uint8_t)IXM42XXX_SMD_CONFIG_WOM_MODE_CMP_PREV);
-	status |= inv_ixm42xxx_write_reg(s, MPUREG_SMD_CONFIG, 1, &data);
 
-    /*tap模式编程*/
-    // 接下来就是设置tap功能模式
-    inv_ixm42xxx_tap_parameters_t tap_param = {0};
-    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
-    inv_ixm42xxx_configure_tap_parameters(s,&tap_param); 
-    inv_ixm42xxx_enable_tap(s);
+	/* Setup MEMs properties */
+	status |= inv_ixm42xxx_read_reg(s, MPUREG_ACCEL_CONFIG0, 1, &accel_cfg_0_reg);
+	accel_cfg_0_reg &= (uint8_t)~BIT_ACCEL_CONFIG0_FS_SEL_MASK;
+	accel_cfg_0_reg |= (uint8_t)IXM42XXX_ACCEL_CONFIG0_FS_SEL_4g;
+	accel_cfg_0_reg &= (uint8_t)~BIT_GYRO_CONFIG0_ODR_MASK;
+	accel_cfg_0_reg |= (uint8_t)IXM42XXX_ACCEL_CONFIG0_ODR_50_HZ; //200Hz 低功耗模式； 500 Hz 普通模式
+	status |= inv_ixm42xxx_write_reg(s, MPUREG_ACCEL_CONFIG0, 1, &accel_cfg_0_reg);
+
     //初始化传感器配置
     inv_ixm42xxx_disable_gyro(s);
-	/* by default, set IIR filter BW to ODR/4 for LN, 16x averaging for GLP, 16x averaging for ALP */
-	s->avg_bw_setting.acc_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_BW_4;
-	// s->avg_bw_setting.gyr_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_GYRO_FILT_BW_4;
-	s->avg_bw_setting.acc_lp_avg = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_AVG_16;
+    /* by default, set IIR filter BW to ODR/4 for LN, 16x averaging for GLP, 16x averaging for ALP */
+    s->avg_bw_setting.acc_ln_bw = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_BW_4;
+    s->avg_bw_setting.acc_lp_avg = (uint8_t)IXM42XXX_GYRO_ACCEL_CONFIG0_ACCEL_FILT_AVG_16;
     inv_ixm42xxx_enable_accel_low_power_mode(s);
-    inv_ixm42xxx_sleep_us(1000);
-	/* Reset self-test result variable*/
-	s->st_result = 0;
+    inv_ixm42xxx_sleep_us(50000);
+	/* Set the ASY_RESET_DISABLE bit to 0 (async enabled) in order to chop Tpulse as soon as interrupt status is read
+	 * Guideline is to set the ASY_RESET_DISABLE bit to 0 in pulse mode
+	 * No effect in latch mode */
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_INT_CONFIG1, 1, &data);
+	// data &= (uint8_t)~BIT_INT_CONFIG1_ASY_RST_MASK;
+	data = 0;
+	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG1, 1, &data);
 
-    // apex 硬件编程
-    inv_ixm42xxx_tap_parameters_t tap_param_apex = {0};
-    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
-    inv_ixm42xxx_configure_tap_parameters(s,&tap_param); 
-    inv_ixm42xxx_sleep_us(1000);
-    inv_ixm42xxx_enable_tap(s);
+    data = 0x03;
+	status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG, 1, &data);
+	inv_ixm42xxx_interrupt_parameter_t config_int = {
+		.INV_IXM42XXX_UI_FSYNC      = INV_IXM42XXX_DISABLE,
+		.INV_IXM42XXX_UI_DRDY       = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_FIFO_THS      = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_FIFO_FULL     = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_SMD           = INV_IXM42XXX_ENABLE,	  
+		.INV_IXM42XXX_WOM_X         = INV_IXM42XXX_ENABLE,	  
+		.INV_IXM42XXX_WOM_Y         = INV_IXM42XXX_ENABLE,	  
+		.INV_IXM42XXX_WOM_Z         = INV_IXM42XXX_ENABLE,	  
+		.INV_IXM42XXX_STEP_DET      = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_STEP_CNT_OVFL = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_TILT_DET      = INV_IXM42XXX_DISABLE,	  
+		.INV_IXM42XXX_FF_DET        = INV_IXM42XXX_DISABLE,	
+		.INV_IXM42XXX_LOWG_DET      = INV_IXM42XXX_DISABLE,
+		.INV_IXM42XXX_TAP_DET       = INV_IXM42XXX_DISABLE,	
+	};
+	status |= inv_ixm42xxx_set_config_int1(s, &config_int);
+    // data = 0x0F;
+    // status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE0, 1, &data);
+    // data = 0x0F;
+    // status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_SOURCE1, 1, &data);
+    inv_ixm42xxx_sleep_us(50000);
+	data = 0x0E;
+	status |= inv_ixm42xxx_write_reg(s, MPUREG_SMD_CONFIG, 1, &data);
+
+    inv_ixm42xxx_enable_wom(s);
+    inv_ixm42xxx_enable_smd(s);
+
+	//    /*tap模式编程*/
+	//    // 接下来就是设置tap功能模式
+	//    inv_ixm42xxx_disable_tap(s);
+	//    inv_ixm42xxx_tap_parameters_t tap_param = {0};
+	//    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
+	//    inv_ixm42xxx_configure_tap_parameters(s,&tap_param); 
+	//    inv_ixm42xxx_sleep_us(1000);
+	// /* Reset self-test result variable*/
+	// s->st_result = 0;
+	//
+	//    // apex 硬件编程
+	//    inv_ixm42xxx_tap_parameters_t tap_param_apex = {0};
+	//    inv_ixm42xxx_init_tap_parameters_struct(s, &tap_param);
+	//    inv_ixm42xxx_configure_tap_parameters(s, &tap_param); 
+	//    inv_ixm42xxx_set_apex_frequency(s, IXM42XXX_APEX_CONFIG0_DMP_ODR_25Hz);
+	//    inv_ixm42xxx_sleep_us(1000);
+	//
+	// /* Set interrupt config */
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_INT_CONFIG, 1, &data);
+	// /* Enable push pull on INT1 to avoid moving in Test Mode after a soft reset */
+	// data |= (uint8_t)IXM42XXX_INT_CONFIG_INT1_DRIVE_CIRCUIT_PP;
+	// /* Configure the INT1 interrupt pulse as active high */
+	// data |= (uint8_t)IXM42XXX_INT_CONFIG_INT1_POLARITY_HIGH;
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG, 1, &data);
+	//
+	//    inv_ixm42xxx_start_dmp(s);
+	//    inv_ixm42xxx_sleep_us(50000);
+	// // config_int.INV_IXM42XXX_UI_DRDY  = INV_IXM42XXX_ENABLE;
+	// // config_int.INV_IXM42XXX_FIFO_THS = INV_IXM42XXX_DISABLE;
+	// // status |= inv_ixm42xxx_set_config_ibi(s,&config_int);
+	//
+	// /* Set the ASY_RESET_DISABLE bit to 0 (async enabled) in order to chop Tpulse as soon as interrupt status is read
+	//  * Guideline is to set the ASY_RESET_DISABLE bit to 0 in pulse mode
+	//  * No effect in latch mode */
+	// status |= inv_ixm42xxx_read_reg(s, MPUREG_INT_CONFIG1, 1, &data);
+	// data &= (uint8_t)~BIT_INT_CONFIG1_ASY_RST_MASK;
+	// data |= (uint8_t)IXM42XXX_INT_CONFIG1_ASY_RST_DISABLED;
+	//    // data ^= 0x40; // 第六位清零 100 us的脉冲
+	// status |= inv_ixm42xxx_write_reg(s, MPUREG_INT_CONFIG1, 1, &data);
+	// status |= inv_ixm42xxx_set_config_int1(s, &config_int);
+	// status |= inv_ixm42xxx_set_config_int2(s, &config_int);
+	//
+	//    inv_ixm42xxx_sleep_us(50000);
+	//    inv_ixm42xxx_enable_tap(s);
 
 	return status;
 }
